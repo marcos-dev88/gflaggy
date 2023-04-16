@@ -4,52 +4,65 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"reflect"
 	"strconv"
 )
 
 var CLIParams = os.Args
 
 type Flag interface {
+	Bool() (bool, error)
 	String() (string, error)
 	Int() (int, error)
 	Float() (float64, error)
 	JSON() (map[string]interface{}, error)
 }
 
+func (f *flag) Bool() (bool, error) {
+	f.Type = "bool"
+	return getValue(f, false)
+}
+
 func (f *flag) String() (string, error) {
-	return getValue(f.Required, f.Name, "")
+	f.Type = "string"
+	return getValue(f, "")
 }
 
 func (f *flag) Int() (int, error) {
-	return getValue(f.Required, f.Name, 0)
+	f.Type = "int"
+	return getValue(f, 0)
 }
 
 func (f *flag) Float() (float64, error) {
-	return getValue(f.Required, f.Name, 0.0)
+	f.Type = "float"
+	return getValue(f, 0.0)
 }
 
 func (f *flag) JSON() (map[string]interface{}, error) {
-	return getValue(f.Required, f.Name, map[string]interface{}{})
+	f.Type = "JSON"
+	return getValue(f, map[string]interface{}{})
 }
 
-func getValue[T any](isRequired bool, flagName string, typeReturn T) (data T, err error) {
-	typeDesiredReturn := reflect.TypeOf(typeReturn).String()
-
-	val, err := getParam(flagName, CLIParams)
+func getValue[T any](f *flag, typeReturn T) (data T, err error) {
+	val, err := f.getParam(CLIParams)
 
 	if err != nil {
 		return
 	}
 
-	if len(val) == 0 && isRequired {
-		err = errors.New("flag " + flagName + " is required")
+	if len(val) == 0 && f.Required {
+		err = errors.New("flag " + f.Name + " is required")
 		return
 	}
 
 	var returnData any
 
-	switch typeDesiredReturn {
+	switch f.Type {
+	case "bool":
+		if len(val) > 0 {
+			returnData = true
+			return returnData.(T), nil
+		}
+		return
 	case "string":
 		returnData = val
 		return returnData.(T), nil
@@ -64,7 +77,7 @@ func getValue[T any](isRequired bool, flagName string, typeReturn T) (data T, er
 		}
 		returnData = convVal
 		return returnData.(T), nil
-	case "float64":
+	case "float":
 		if len(val) == 0 {
 			val = "0.0"
 		}
@@ -75,7 +88,7 @@ func getValue[T any](isRequired bool, flagName string, typeReturn T) (data T, er
 		}
 		returnData = convVal
 		return returnData.(T), nil
-	case "map[string]interface {}":
+	case "JSON":
 		if len(val) == 0 {
 			return
 		}
@@ -87,15 +100,18 @@ func getValue[T any](isRequired bool, flagName string, typeReturn T) (data T, er
 	return
 }
 
-func getParam(flagName string, params []string) (string, error) {
+func (f flag) getParam(params []string) (string, error) {
 	if len(params) < 2 {
 		return "", errors.New("was expected a param to get a flag and nothing came")
 	}
 
-	mapIndex := flagIndex(flagName, params)
+	mapIndex := flagIndex(f.Name, params)
 
-	if v, ok := mapIndex[flagName]; ok {
+	if v, ok := mapIndex[f.Name]; ok {
 		if v != DefaultNullValue {
+			if f.Type == "bool" {
+				return params[v], nil
+			}
 			return params[v+1], nil
 		}
 	}
