@@ -4,6 +4,7 @@ const DefaultNullValue = -1
 
 type flag struct {
 	Name     string
+	Type     string
 	Required bool
 }
 
