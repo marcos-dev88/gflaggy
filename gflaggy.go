@@ -13,32 +13,38 @@ type Flag interface {
 	Bool() (bool, error)
 	String() (string, error)
 	Int() (int, error)
-	Float() (float64, error)
+	Float32() (float32, error)
+	Float64() (float64, error)
 	JSON() (map[string]interface{}, error)
 }
 
 func (f *flag) Bool() (bool, error) {
-	f.Type = "bool"
+	f.Type = Boolean
 	return getValue(f, false)
 }
 
 func (f *flag) String() (string, error) {
-	f.Type = "string"
+	f.Type = String
 	return getValue(f, "")
 }
 
 func (f *flag) Int() (int, error) {
-	f.Type = "int"
+	f.Type = Integer
 	return getValue(f, 0)
 }
 
-func (f *flag) Float() (float64, error) {
-	f.Type = "float"
+func (f *flag) Float32() (float32, error) {
+	f.Type = Float32
+	return getValue(f, float32(0.0))
+}
+
+func (f *flag) Float64() (float64, error) {
+	f.Type = Float64
 	return getValue(f, 0.0)
 }
 
 func (f *flag) JSON() (map[string]interface{}, error) {
-	f.Type = "JSON"
+	f.Type = JSON
 	return getValue(f, map[string]interface{}{})
 }
 
@@ -57,16 +63,16 @@ func getValue[T any](f *flag, typeReturn T) (data T, err error) {
 	var returnData any
 
 	switch f.Type {
-	case "bool":
+	case Boolean:
 		if len(val) > 0 {
 			returnData = true
 			return returnData.(T), nil
 		}
 		return
-	case "string":
+	case String:
 		returnData = val
 		return returnData.(T), nil
-	case "int":
+	case Integer:
 		if len(val) == 0 {
 			val = "0"
 		}
@@ -77,7 +83,7 @@ func getValue[T any](f *flag, typeReturn T) (data T, err error) {
 		}
 		returnData = convVal
 		return returnData.(T), nil
-	case "float":
+	case Float64:
 		if len(val) == 0 {
 			val = "0.0"
 		}
@@ -88,7 +94,19 @@ func getValue[T any](f *flag, typeReturn T) (data T, err error) {
 		}
 		returnData = convVal
 		return returnData.(T), nil
-	case "JSON":
+	case Float32:
+		if len(val) == 0 {
+			val = "0.0"
+		}
+		convVal, errParse := strconv.ParseFloat(val, 32)
+		if errParse != nil {
+			err = errParse
+			return
+		}
+		returnData = float32(convVal)
+		return returnData.(T), nil
+
+	case JSON:
 		if len(val) == 0 {
 			return
 		}
@@ -109,7 +127,7 @@ func (f flag) getParam(params []string) (string, error) {
 
 	if v, ok := mapIndex[f.Name]; ok {
 		if v != DefaultNullValue {
-			if f.Type == "bool" {
+			if f.Type == Boolean {
 				return params[v], nil
 			}
 			return params[v+1], nil
